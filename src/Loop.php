@@ -2,11 +2,15 @@
 
 namespace PE\Component\Loop;
 
+use Closure;
+
 final class Loop implements LoopInterface
 {
     private float $delay;
 
     private int $sleep;
+
+    private ?Closure $onTick;
 
     private bool $running = false;
 
@@ -26,13 +30,16 @@ final class Loop implements LoopInterface
      * Creates a cycle with a certain tick precision (to regulate the load on the CPU)
      *
      * @param int $precisionMs Precision in milliseconds
+     * @param Closure|null $onTick Closure to be called on each tick
      */
-    public function __construct(int $precisionMs = 1)
+    public function __construct(int $precisionMs = 1, Closure $onTick = null)
     {
         $precisionMs = max($precisionMs, 1);
 
         $this->sleep = $precisionMs * 500;
         $this->delay = $precisionMs / 1000.0;
+
+        $this->onTick = $onTick;
     }
 
     /**
@@ -96,13 +103,16 @@ final class Loop implements LoopInterface
         $this->running = true;
 
         while ($this->running) {
+            if (null !== $this->onTick) {
+                call_user_func($this->onTick, $this);
+            }
+
             if (!$this->sorted) {
                 $this->sorted = true;
                 asort($this->schedule);
             }
 
             $time = microtime(true);
-
             while ((microtime(true) - $time) < $this->delay) {
                 usleep($this->sleep);
             }
